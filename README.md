@@ -23,7 +23,7 @@ def square(x):
 @parallel
 def process(x):
     y = square(x)
-    logger.info("Input %d, output %d." (x, y))
+    logger.info("Input %d, output %d." % (x, y))
     return True
 
 
