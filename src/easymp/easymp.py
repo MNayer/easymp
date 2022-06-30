@@ -4,6 +4,13 @@ import functools as ft
 import multiprocessing as mp
 import logging
 import logging.handlers
+import sys
+try:
+    from tqdm import tqdm
+    tqdm_support = True
+except ModuleNotFoundError:
+    tqdm_support = False
+
 
 
 #########################################################
@@ -82,12 +89,20 @@ def parallel(function):
 
 
 @addlogging
-def execute(function, it, nprocs, chunksize=1):
+def execute(function, it, nprocs, chunksize=1, progress=False, total=None, progress_file=sys.stderr):
+    if progress and not tqdm_support:
+        logger.error("Please install 'tqdm' to use the progress feature. Disable progress.")
+        progress = False
+    if progress and total == None:
+        logger.warning("The progress feature is most useful when the total number of elements in the iterator is specified.")
     queue = mp.Queue(-1)
     listener = mp.Process(target=listener_process, args=(queue, listener_configurer))
     listener.start()
     with mp.Pool(nprocs, initializer=worker_init, initargs=(queue, worker_configurer)) as p:
-        p.imap_unordered(function, it, chunksize=chunksize)
+        if progress:
+            p.imap_unordered(function, tqdm(it, total=total, file=progress_file), chunksize=chunksize)
+        else:
+            p.imap_unordered(function, it, chunksize=chunksize)
         p.close()
         p.join()
     queue.put_nowait(None)
