@@ -5,6 +5,7 @@ import multiprocessing as mp
 import logging
 import logging.handlers
 import sys
+from os import getpid
 try:
     from tqdm import tqdm
     tqdm_support = True
@@ -26,7 +27,8 @@ def addlogging(func):
     def wrapper(*args, **kwargs):
         if not "logger" in func.__globals__:
             func.__globals__["logger"] = logging.getLogger(
-                    "%s.%s" % (func.__module__, func.__name__)
+                    "easymp"
+                    #"%s.%s" % (func.__module__, func.__name__) # TODO REMOVE
                     )
         return func(*args, **kwargs)
     return wrapper
@@ -36,7 +38,7 @@ def listener_configurer():
     root = logging.getLogger()
     h = logging.StreamHandler()
     f = logging.Formatter(
-            "%(levelname)s | %(asctime)s | %(name)s | %(message)s"
+            "%(levelname)s | %(process)d | %(asctime)s | %(filename)s.%(funcName)s | %(message)s"
             )
     h.setFormatter(f)
     root.addHandler(h)
@@ -53,7 +55,7 @@ def listener_process(queue, configurer):
                 break
             logger = logging.getLogger(record.name)
 
-            # No level or filter logic applied - just do it!
+            # No level or filter logic applied
             logger.handle(record)
         except Exception:
             import sys, traceback
@@ -99,11 +101,24 @@ def execute(function, it, nprocs, chunksize=1, progress=False, total=None, progr
     listener = mp.Process(target=listener_process, args=(queue, listener_configurer))
     listener.start()
     with mp.Pool(nprocs, initializer=worker_init, initargs=(queue, worker_configurer)) as p:
-        if progress:
-            p.imap_unordered(function, tqdm(it, total=total, file=progress_file), chunksize=chunksize)
-        else:
-            p.imap_unordered(function, it, chunksize=chunksize)
-        p.close()
-        p.join()
-    queue.put_nowait(None)
-    listener.join()
+        try:
+            if progress:
+                res = p.imap_unordered(function, tqdm(it, total=total, file=progress_file), chunksize=chunksize)
+            else:
+                res = p.imap_unordered(function, it, chunksize=chunksize)
+
+            # This is necessary for some exceptions (like those in the
+            # multiprocessing lib) to be thrown and printed.
+            for el in res:
+                pass
+
+            p.close()
+            p.join()
+            queue.put_nowait(None)
+            listener.join()
+        except KeyboardInterrupt:
+            print("Caught KeyboardInterrupt, terminating workers.")
+            p.terminate()
+            p.join()
+            queue.put_nowait(None)
+            listener.terminate()
