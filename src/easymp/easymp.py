@@ -106,12 +106,7 @@ def execute(function, it, nprocs, chunksize=1, progress=False, total=None, progr
                 res = p.imap_unordered(function, tqdm(it, total=total, file=progress_file), chunksize=chunksize)
             else:
                 res = p.imap_unordered(function, it, chunksize=chunksize)
-
-            # This is necessary for some exceptions (like those in the
-            # multiprocessing lib) to be thrown and printed.
-            for el in res:
-                pass
-
+            yield from res
             p.close()
             p.join()
             queue.put_nowait(None)
