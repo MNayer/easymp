@@ -103,8 +103,12 @@ def execute(function, it, nprocs, chunksize=1, progress=False, total=None, progr
     with mp.Pool(nprocs, initializer=worker_init, initargs=(queue, worker_configurer)) as p:
         try:
             res = p.imap_unordered(function, it, chunksize=chunksize)
-            for el in tqdm(res, total=total, file=progress_file):
-                yield el
+            if progress:
+                for el in tqdm(res, total=total, file=progress_file):
+                    yield el
+            else:
+                for el in res:
+                    yield el
             p.close()
             p.join()
             queue.put_nowait(None)
