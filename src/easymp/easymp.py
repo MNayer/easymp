@@ -105,16 +105,10 @@ def execute(function, it, nprocs, chunksize=1, progress=False, total=None, progr
             res = p.imap_unordered(function, it, chunksize=chunksize)
             if progress:
                 for el in tqdm(res, total=total, file=progress_file):
-                    if yield_results:
-                        yield el
-                    else:
-                        pass
+                    pass
             else:
                 for el in res:
-                    if yield_results:
-                        yield el
-                    else:
-                        pass
+                    pass
             p.close()
             p.join()
             queue.put_nowait(None)
