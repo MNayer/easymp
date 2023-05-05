@@ -91,7 +91,7 @@ def parallel(function):
 
 
 @addlogging
-def execute(function, it, nprocs, chunksize=1, progress=False, total=None, progress_file=sys.stderr):
+def execute(function, it, nprocs, chunksize=1, progress=False, total=None, progress_file=sys.stderr, yield_results=False):
     if progress and not tqdm_support:
         logger.error("Please install 'tqdm' to use the progress feature. Disable progress.")
         progress = False
@@ -105,10 +105,16 @@ def execute(function, it, nprocs, chunksize=1, progress=False, total=None, progr
             res = p.imap_unordered(function, it, chunksize=chunksize)
             if progress:
                 for el in tqdm(res, total=total, file=progress_file):
-                    yield el
+                    if yield_results:
+                        yield el
+                    else:
+                        pass
             else:
                 for el in res:
-                    yield el
+                    if yield_results:
+                        yield el
+                    else:
+                        pass
             p.close()
             p.join()
             queue.put_nowait(None)
